@@ -17,7 +17,7 @@ class CoinInstrument:
         self.to = to
         self.period = period
         self.load_data()
-        self.log_returns()
+        self._data["log_returns"] = self.log_returns()
 
     def __repr__(self):
         return "CoinInstrument(ticker={}, to={}, count={}, interval={})".format(self.ticker, self.to,
@@ -38,8 +38,11 @@ class CoinInstrument:
         self._data = pyupbit.get_ohlcv(self.ticker, self.interval, self.count, self.to, self.period)
         # self._data.index = self._data.index.tz_convert(None).tz_localize('Asia/Seoul')
 
+    def symbol(self):
+        return self.ticker
+
     def log_returns(self):
-        self._data["log_returns"] = np.log(self._data.close / self._data.close.shift(1))
+        return np.log(self._data.close / self._data.close.shift(1))
 
     def plot_prices(self, figsize=(12, 8)):
         self._data.close.plot(figsize=figsize)
