@@ -112,3 +112,55 @@ class EMABackTester:
   def optimize_parameters(self, ema_s_range, ema_l_range):
     opt = brute(self.update_and_run, (ema_s_range, ema_l_range), finish=None)
     return opt, -self.update_and_run(opt)
+
+
+class CrossSmaEmaBackTester:
+  def __init__(self, symbol, to=None, count=200, interval='day', period=0.5, window=50):
+    self.results = None
+    self._data = None
+    self.coinInstrument = CoinInstrument(symbol, to, count, interval, period)
+    self._window = window
+    self.load_data()
+
+  def __repr__(self):
+    return "EMASmaEmaBackTester(ticker={}, to={}, count={}, interval={}, window={})"\
+      .format(self.coinInstrument.ticker, self.coinInstrument.to, self.coinInstrument.count, self.coinInstrument.interval, self._window)
+
+  def load_data(self):
+    self._data = pd.DataFrame()
+    self._data["SMA"] = self.coinInstrument.sma(self._window)
+    self._data["EMA"] = self.coinInstrument.ema(self._window)
+
+  def set_parameters(self, window=None):
+    if window is not None:
+      self._window = window
+    self.load_data()
+
+  def test_strategy(self):
+    data = self._data.copy()
+    data["returns"] = self.coinInstrument.log_returns()
+    data.dropna(inplace=True)
+    data["position"] = np.where(data["SMA"] < data["EMA"], 1, -1)
+    data["strategy"] = data["position"].shift(1) * data["returns"]
+    data.dropna(inplace=True)
+    data["creturns"] = data["returns"].cumsum().apply(np.exp)
+    data["cstrategy"] = data["strategy"].cumsum().apply(np.exp)
+    self.results = data
+    perf = data["cstrategy"].iloc[-1]
+    outperf = perf - data["creturns"].iloc[-1]
+    return round(perf, 6), round(outperf, 6)
+
+  def plot_returns(self):
+    if self.results is None:
+      print("No results to plot yet. Run a strategy")
+    else:
+      title = "{} | CROSS SMA = {} | EMA = {}".format(self.coinInstrument.symbol(), self._window, self._window)
+      self.results[["creturns", "cstrategy"]].plot(title=title, figsize=(6,4))
+
+  def update_and_run(self, window):
+    self.set_parameters(int(window))
+    return -self.test_strategy()[0]
+
+  def optimize_parameters(self, window_range):
+    opt = brute(self.update_and_run, window_range, finish=None)
+    return opt, -self.update_and_run(opt)
