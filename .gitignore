@@ -17,7 +17,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+algobot/
 lib64/
 parts/
 sdist/

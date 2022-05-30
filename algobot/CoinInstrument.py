@@ -64,3 +64,6 @@ class CoinInstrument:
     
     def sma(self, window):
         return self._data.close.rolling(window).mean()
+    
+    def ema(self, window):
+        return self._data.close.ewm(span=window, min_periods=window).mean()
