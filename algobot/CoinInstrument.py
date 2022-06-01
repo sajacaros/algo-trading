@@ -67,3 +67,11 @@ class CoinInstrument:
     
     def ema(self, window):
         return self._data.close.ewm(span=window, min_periods=window).mean()
+
+    def macd(self, ema_s, ema_l, signal_window):
+        raw = pd.DataFrame(index=self._data.index)
+        raw["EMA_S"] = self.ema(ema_s)
+        raw["EMA_L"] = self.ema(ema_l)
+        raw["MACD"] = raw.EMA_S - raw.EMA_L
+        raw["MACD_SIGNAL"] = raw.MACD.ewm(span=signal_window, min_periods=signal_window).mean()
+        return raw.loc[:, ["MACD", "MACD_SIGNAL"]].copy()

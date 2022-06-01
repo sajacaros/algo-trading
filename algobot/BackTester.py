@@ -162,5 +162,63 @@ class CrossSmaEmaBackTester:
     return -self.test_strategy()[0]
 
   def optimize_parameters(self, window_range):
-    opt = brute(self.update_and_run, window_range, finish=None)
+    opt = brute(self.update_and_run, [window_range], finish=None)
+    return opt, -self.update_and_run(opt)
+
+
+class MACDBackTester:
+  def __init__(self, symbol, to=None, count=200, interval='day', period=0.5, ema_s=12, ema_l=26, signal_window=9):
+    self.results = None
+    self._data = None
+    self.coinInstrument = CoinInstrument(symbol, to, count, interval, period)
+    self._ema_s = ema_s
+    self._ema_l = ema_l
+    self._signal_window = signal_window
+    self.load_data()
+
+  def __repr__(self):
+    return "MACDBackTester(ticker={}, to={}, count={}, interval={}, ema_s={}, ema_l={}, signal={})"\
+      .format(self.coinInstrument.ticker, self.coinInstrument.to, self.coinInstrument.count, self.coinInstrument.interval,
+              self._ema_s, self._ema_l, self._signal_window)
+
+  def load_data(self):
+    self._data = self.coinInstrument.macd(self._ema_s, self._ema_l, self._signal_window)
+
+  def set_parameters(self, ema_s=None, ema_l=None, signal_window=None):
+    if ema_s is not None:
+      self._ema_s = ema_s
+    if ema_l is not None:
+      self._ema_l = ema_l
+    if signal_window is not None:
+      self._signal_window = signal_window
+
+    self.load_data()
+
+  def test_strategy(self):
+    data = self._data.copy()
+    data["returns"] = self.coinInstrument.log_returns()
+    data.dropna(inplace=True)
+    data["position"] = np.where(data["MACD_SIGNAL"] < data["MACD"], 1, -1)
+    data["strategy"] = data["position"].shift(1) * data["returns"]
+    data.dropna(inplace=True)
+    data["creturns"] = data["returns"].cumsum().apply(np.exp)
+    data["cstrategy"] = data["strategy"].cumsum().apply(np.exp)
+    self.results = data
+    perf = data["cstrategy"].iloc[-1]
+    outperf = perf - data["creturns"].iloc[-1]
+    return round(perf, 6), round(outperf, 6)
+
+  def plot_returns(self):
+    if self.results is None:
+      print("No results to plot yet. Run a strategy")
+    else:
+      title = "{} | MACD = {}/{} | SIGNAL = {}".format(self.coinInstrument.symbol(), self._ema_s, self._ema_l, self._signal_window)
+      self.results[["creturns", "cstrategy"]].plot(title=title, figsize=(6,4))
+
+  def update_and_run(self, macd=None):
+    self.set_parameters(int(macd[0]), int(macd[1]), int(macd[2]))
+    return -self.test_strategy()[0]
+
+  def optimize_parameters(self, ema_s_range, ema_l_range, window_range):
+    opt = brute(self.update_and_run, (ema_s_range, ema_l_range, window_range), finish=None)
     return opt, -self.update_and_run(opt)
