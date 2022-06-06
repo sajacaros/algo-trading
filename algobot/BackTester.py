@@ -222,3 +222,116 @@ class MACDBackTester:
   def optimize_parameters(self, ema_s_range, ema_l_range, window_range):
     opt = brute(self.update_and_run, (ema_s_range, ema_l_range, window_range), finish=None)
     return opt, -self.update_and_run(opt)
+
+
+class SOBackTester:
+  def __init__(self, symbol, to=None, count=200, interval='day', period=0.5, periods=14,d_window=3):
+    self.results = None
+    self._data = None
+    self.coinInstrument = CoinInstrument(symbol, to, count, interval, period)
+    self._periods = periods
+    self._d_window = d_window
+    self.load_data()
+
+  def __repr__(self):
+    return "SOBackTester(ticker={}, to={}, count={}, interval={}, periods={}, d_window={})"\
+      .format(self.coinInstrument.ticker, self.coinInstrument.to, self.coinInstrument.count, self.coinInstrument.interval,
+              self._periods, self._d_window)
+
+  def load_data(self):
+    self._data = self.coinInstrument.so(self._periods, self._d_window)
+
+  def set_parameters(self, periods=None, d_window=None):
+    if periods is not None:
+      self._periods = periods
+    if d_window is not None:
+      self._d_window = d_window
+
+    self.load_data()
+
+  def test_strategy(self):
+    data = self._data.copy()
+    data["returns"] = self.coinInstrument.log_returns()
+    data.dropna(inplace=True)
+    data["position"] = np.where(data["K"] > data["D"], 1, -1)
+    data["strategy"] = data["position"].shift(1) * data["returns"]
+    data.dropna(inplace=True)
+    data["creturns"] = data["returns"].cumsum().apply(np.exp)
+    data["cstrategy"] = data["strategy"].cumsum().apply(np.exp)
+    self.results = data
+    perf = data["cstrategy"].iloc[-1]
+    outperf = perf - data["creturns"].iloc[-1]
+    return round(perf, 6), round(outperf, 6)
+
+  def plot_returns(self):
+    if self.results is None:
+      print("No results to plot yet. Run a strategy")
+    else:
+      title = "{} | SO = {}/{}".format(self.coinInstrument.symbol(), self._periods, self._d_window)
+      self.results[["creturns", "cstrategy"]].plot(title=title, figsize=(6,4))
+
+  def update_and_run(self, so=None):
+    self.set_parameters(int(so[0]), int(so[1]))
+    return -self.test_strategy()[0]
+
+  def optimize_parameters(self, periods_range, d_window_range):
+    opt = brute(self.update_and_run, (periods_range, d_window_range), finish=None)
+    return opt, -self.update_and_run(opt)
+
+class SOHorizonBackTester:
+  def __init__(self, symbol, to=None, count=200, interval='day', period=0.5, periods=14, upper=80, lower=20):
+    self.results = None
+    self._data = None
+    self.coinInstrument = CoinInstrument(symbol, to, count, interval, period)
+    self._periods = periods
+    self._upper = upper
+    self._lower = lower
+    self.load_data()
+
+  def __repr__(self):
+    return "SOHorizonBackTester(ticker={}, to={}, count={}, interval={}, periods={}, upper={}, lower={})"\
+      .format(self.coinInstrument.ticker, self.coinInstrument.to, self.coinInstrument.count, self.coinInstrument.interval,
+              self._periods, self._upper, self._lower)
+
+  def load_data(self):
+    self._data = self.coinInstrument.so(self._periods)
+
+  def set_parameters(self, periods=None, upper=None, lower=None):
+    if periods is not None:
+      self._periods = periods
+    if upper is not None:
+      self._upper = upper
+    if lower is not None:
+      self._lower = lower
+
+    self.load_data()
+
+  def test_strategy(self):
+    data = self._data.copy()
+    data["returns"] = self.coinInstrument.log_returns()
+    data.dropna(inplace=True)
+    data["position"] = np.where(data["K"] > self._upper, -1, np.nan)
+    data["position"] = np.where(data["K"] < self._lower, 1, data.position)
+    data["strategy"] = data["position"].shift(1) * data["returns"]
+    data.dropna(inplace=True)
+    data["creturns"] = data["returns"].cumsum().apply(np.exp)
+    data["cstrategy"] = data["strategy"].cumsum().apply(np.exp)
+    self.results = data
+    perf = data["cstrategy"].iloc[-1]
+    outperf = perf - data["creturns"].iloc[-1]
+    return round(perf, 6), round(outperf, 6)
+
+  def plot_returns(self):
+    if self.results is None:
+      print("No results to plot yet. Run a strategy")
+    else:
+      title = "{} | SO = {}".format(self.coinInstrument.symbol(), self._periods)
+      self.results[["creturns", "cstrategy"]].plot(title=title, figsize=(6,4))
+
+  def update_and_run(self, so_horizon=None):
+    self.set_parameters(int(so_horizon[0]), int(so_horizon[1]), int(so_horizon[2]))
+    return -self.test_strategy()[0]
+
+  def optimize_parameters(self, periods_range, so_upper_range, so_lower_range):
+    opt = brute(self.update_and_run, (periods_range, so_upper_range, so_lower_range), finish=None)
+    return opt, -self.update_and_run(opt)

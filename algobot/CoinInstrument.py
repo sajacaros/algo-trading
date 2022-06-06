@@ -75,3 +75,11 @@ class CoinInstrument:
         raw["MACD"] = raw.EMA_S - raw.EMA_L
         raw["MACD_SIGNAL"] = raw.MACD.ewm(span=signal_window, min_periods=signal_window).mean()
         return raw.loc[:, ["MACD", "MACD_SIGNAL"]].copy()
+
+    def so(self, periods=14, d_window=3):
+        raw = pd.DataFrame(index=self._data.index)
+        raw["roll_low"] = self._data.low.rolling(periods).min()
+        raw["roll_high"] = self._data.high.rolling(periods).max()
+        raw["K"] = (self._data.close - raw.roll_low) / (raw.roll_high - raw.roll_low) * 100
+        raw["D"] = raw.K.rolling(d_window).mean()
+        return raw.loc[:, ["K", "D"]].copy()
