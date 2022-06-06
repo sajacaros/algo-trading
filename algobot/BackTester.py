@@ -140,7 +140,7 @@ class CrossSmaEmaBackTester:
     data = self._data.copy()
     data["returns"] = self.coinInstrument.log_returns()
     data.dropna(inplace=True)
-    data["position"] = np.where(data["EMA"] < data["SMA"], 1, -1)
+    data["position"] = np.where(data["EMA"] > data["SMA"], 1, -1)
     data["strategy"] = data["position"].shift(1) * data["returns"]
     data.dropna(inplace=True)
     data["creturns"] = data["returns"].cumsum().apply(np.exp)
@@ -198,7 +198,7 @@ class MACDBackTester:
     data = self._data.copy()
     data["returns"] = self.coinInstrument.log_returns()
     data.dropna(inplace=True)
-    data["position"] = np.where(data["MACD_SIGNAL"] < data["MACD"], 1, -1)
+    data["position"] = np.where(data["MACD"] > data["MACD_SIGNAL"], 1, -1)
     data["strategy"] = data["position"].shift(1) * data["returns"]
     data.dropna(inplace=True)
     data["creturns"] = data["returns"].cumsum().apply(np.exp)
