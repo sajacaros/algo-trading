@@ -339,3 +339,4 @@ class SOHorizonBackTester:
   def optimize_parameters(self, periods_range, so_upper_range, so_lower_range):
     opt = brute(self.update_and_run, (periods_range, so_upper_range, so_lower_range), finish=None)
     return opt, -self.update_and_run(opt)
+  
