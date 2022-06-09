@@ -70,16 +70,25 @@ class CoinInstrument:
 
     def macd(self, ema_s, ema_l, signal_window):
         raw = pd.DataFrame(index=self._data.index)
-        raw["EMA_S"] = self.ema(ema_s)
-        raw["EMA_L"] = self.ema(ema_l)
-        raw["MACD"] = raw.EMA_S - raw.EMA_L
-        raw["MACD_SIGNAL"] = raw.MACD.ewm(span=signal_window, min_periods=signal_window).mean()
+        raw["EMA_S"] = self.ema(ema_s)  # short ema
+        raw["EMA_L"] = self.ema(ema_l)  # long ema
+        raw["MACD"] = raw.EMA_S - raw.EMA_L  # short-long diff
+        raw["MACD_SIGNAL"] = raw.MACD.ewm(span=signal_window, min_periods=signal_window).mean()  # MACD ema
         return raw.loc[:, ["MACD", "MACD_SIGNAL"]].copy()
 
     def so(self, periods=14, d_window=3):
         raw = pd.DataFrame(index=self._data.index)
-        raw["roll_low"] = self._data.low.rolling(periods).min()
-        raw["roll_high"] = self._data.high.rolling(periods).max()
-        raw["K"] = (self._data.close - raw.roll_low) / (raw.roll_high - raw.roll_low) * 100
+        raw["roll_low"] = self._data.low.rolling(periods).min()  # 기간동안의 최소값(min)
+        raw["roll_high"] = self._data.high.rolling(periods).max()  # 기간동안의 최대값(max)
+        raw["K"] = (self._data.close - raw.roll_low) / (raw.roll_high - raw.roll_low) * 100  # (price-min)/(max-min)*100
         raw["D"] = raw.K.rolling(d_window).mean()
         return raw.loc[:, ["K", "D"]].copy()
+    
+    def rsi(self, periods=14):
+        raw = pd.DataFrame(index=self._data.index)
+        raw["U"] = np.where(self._data.close.diff() > 0, self._data.close.diff(), 0)  # 전날 대비 상승폭(U)
+        raw["D"] = np.where(self._data.close.diff() < 0, -self._data.close.diff(), 0)  # 전날 대비 하락폭(D)
+        raw["MA_U"] = raw.U.rolling(periods).mean()  # U의 SMA(U_SMA)
+        raw["MA_D"] = raw.D.rolling(periods).mean()  # D의 SMA(D_SMA)
+        raw["RSI"] = raw.MA_U / (raw.MA_U + raw.MA_D) * 100  # U_SMA/(U_SMA + D_SMA)
+        return raw.loc[:, ["RSI"]].copy()
