@@ -278,6 +278,7 @@ class SOBackTester:
     opt = brute(self.update_and_run, (periods_range, d_window_range), finish=None)
     return opt, -self.update_and_run(opt)
 
+
 class SOHorizonBackTester:
   def __init__(self, symbol, to=None, count=200, interval='day', period=0.5, periods=14, upper=80, lower=20):
     self.results = None
@@ -309,11 +310,14 @@ class SOHorizonBackTester:
   def test_strategy(self):
     data = self._data.copy()
     data["returns"] = self.coinInstrument.log_returns()
+    data["before_k"] = data.K.shift(1)
     data.dropna(inplace=True)
-    data["position"] = np.where(data["K"] > self._upper, -1, np.nan)
-    data["position"] = np.where(data["K"] < self._lower, 1, data.position)
+    # data["position"] = np.where((data["before_k"] > self._upper) & (data["K"] < self._upper), -1, np.nan)
+    data["position"] = np.where((data["before_k"] > self._upper) & (data["K"] > self._upper), 0, np.nan)
+    data["position"] = np.where((data["before_k"] < self._lower) & (data["K"] < self._lower), 1, data.position)
+    data.position = data.position.fillna(method='ffill')
+    data.position = data.position.fillna(0)
     data["strategy"] = data["position"].shift(1) * data["returns"]
-    data.dropna(inplace=True)
     data["creturns"] = data["returns"].cumsum().apply(np.exp)
     data["cstrategy"] = data["strategy"].cumsum().apply(np.exp)
     self.results = data
